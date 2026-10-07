@@ -1,0 +1,16 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+*.log
+db.sqlite3
+whoosh_index/
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+node_modules/
+src/DjangoBlog/
+src/用户名和密码.txt

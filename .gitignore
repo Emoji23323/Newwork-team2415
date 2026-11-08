@@ -12,6 +12,6 @@ whoosh_index/
 .DS_Store
 Thumbs.db
 node_modules/
-src/DjangoBlog/
+.git-upstream/
 src/用户名和密码.txt
 ~$*

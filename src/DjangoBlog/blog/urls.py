@@ -1,3 +1,4 @@
+"""YCY：定义前台页面、归档、链接、文件上传与缓存清理路由。"""
 from django.urls import path
 from django.views.decorators.cache import cache_page
 
@@ -53,10 +54,12 @@ urlpatterns = [
         name='links'),
     path(
         r'upload',
+        # YCY：上传入口使用自定义签名鉴权，而不是登录态。
         views.fileupload,
         name='upload'),
     path(
         r'clean',
+        # YCY：清缓存入口未做权限校验，生产环境应限制访问来源。
         views.clean_cache_view,
         name='clean'),
 ]

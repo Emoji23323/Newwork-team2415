@@ -1,3 +1,4 @@
+"""PHJ：封装各第三方平台的授权地址、令牌交换与用户信息解析。"""
 import json
 import logging
 import os
@@ -13,13 +14,13 @@ logger = logging.getLogger(__name__)
 
 
 class OAuthAccessTokenException(Exception):
-    '''
+    '''PHJ：
     oauth授权失败异常
     '''
 
 
 class BaseOauthManager(metaclass=ABCMeta):
-    """获取用户授权"""
+    """PHJ：获取用户授权"""
     AUTH_URL = None
     """获取token"""
     TOKEN_URL = None
@@ -72,6 +73,7 @@ class BaseOauthManager(metaclass=ABCMeta):
 
 
 class WBOauthManager(BaseOauthManager):
+    """PHJ：微博平台适配器。"""
     AUTH_URL = 'https://api.weibo.com/oauth2/authorize'
     TOKEN_URL = 'https://api.weibo.com/oauth2/access_token'
     API_URL = 'https://api.weibo.com/2/users/show.json'
@@ -147,6 +149,7 @@ class WBOauthManager(BaseOauthManager):
 
 
 class ProxyManagerMixin:
+    """PHJ：为需要代理的平台复用代理配置。"""
     def __init__(self, *args, **kwargs):
         if os.environ.get("HTTP_PROXY"):
             self.proxies = {
@@ -168,6 +171,7 @@ class ProxyManagerMixin:
 
 
 class GoogleOauthManager(ProxyManagerMixin, BaseOauthManager):
+    """PHJ：Google 平台适配器。"""
     AUTH_URL = 'https://accounts.google.com/o/oauth2/v2/auth'
     TOKEN_URL = 'https://www.googleapis.com/oauth2/v4/token'
     API_URL = 'https://www.googleapis.com/oauth2/v3/userinfo'
@@ -246,6 +250,7 @@ class GoogleOauthManager(ProxyManagerMixin, BaseOauthManager):
 
 
 class GitHubOauthManager(ProxyManagerMixin, BaseOauthManager):
+    """PHJ：GitHub 平台适配器，额外处理邮箱列表。"""
     AUTH_URL = 'https://github.com/login/oauth/authorize'
     TOKEN_URL = 'https://github.com/login/oauth/access_token'
     API_URL = 'https://api.github.com/user'
@@ -309,21 +314,21 @@ class GitHubOauthManager(ProxyManagerMixin, BaseOauthManager):
             if 'email' in datas and datas['email']:
                 user.email = datas['email']
             else:
-                # If email is not public, fetch from /user/emails endpoint
+                # PHJ：If email is not public, fetch from /user/emails endpoint
                 try:
                     emails_rsp = self.do_get(self.EMAILS_API_URL, params={}, headers={
                         "Authorization": "Bearer " + self.access_token
                     })
                     emails = json.loads(emails_rsp)
-                    # Find verified email, prioritizing primary verified email
+                    # PHJ：Find verified email, prioritizing primary verified email
                     for email_data in emails:
                         if email_data.get('verified'):
                             if email_data.get('primary'):
-                                # Primary verified email takes priority
+                                # PHJ：Primary verified email takes priority
                                 user.email = email_data.get('email')
                                 break
                             elif not user.email:
-                                # Use first verified email as fallback
+                                # PHJ：Use first verified email as fallback
                                 user.email = email_data.get('email')
                 except Exception as e:
                     logger.warning(f'Failed to fetch private email from GitHub API. User login will fail if email is required: {e}')
@@ -339,6 +344,7 @@ class GitHubOauthManager(ProxyManagerMixin, BaseOauthManager):
 
 
 class FaceBookOauthManager(ProxyManagerMixin, BaseOauthManager):
+    """PHJ：Facebook 平台适配器。"""
     AUTH_URL = 'https://www.facebook.com/v16.0/dialog/oauth'
     TOKEN_URL = 'https://graph.facebook.com/v16.0/oauth/access_token'
     API_URL = 'https://graph.facebook.com/me'
@@ -369,7 +375,7 @@ class FaceBookOauthManager(ProxyManagerMixin, BaseOauthManager):
         params = {
             'client_id': self.client_id,
             'client_secret': self.client_secret,
-            # 'grant_type': 'authorization_code',
+            # PHJ：'grant_type': 'authorization_code',
             'code': code,
 
             'redirect_uri': self.callback_url
@@ -413,6 +419,7 @@ class FaceBookOauthManager(ProxyManagerMixin, BaseOauthManager):
 
 
 class QQOauthManager(BaseOauthManager):
+    """PHJ：QQ 平台适配器，需要先换取 openid。"""
     AUTH_URL = 'https://graph.qq.com/oauth2.0/authorize'
     TOKEN_URL = 'https://graph.qq.com/oauth2.0/token'
     API_URL = 'https://graph.qq.com/user/get_user_info'
@@ -503,6 +510,7 @@ class QQOauthManager(BaseOauthManager):
 
 @cache_decorator(expiration=100 * 60)
 def get_oauth_apps():
+    """PHJ：列出已启用的第三方登录平台，供页面展示。"""
     configs = OAuthConfig.objects.filter(is_enable=True).all()
     if not configs:
         return []
@@ -513,6 +521,7 @@ def get_oauth_apps():
 
 
 def get_manager_by_type(type):
+    """PHJ：按平台类型实例化对应管理器。"""
     applications = get_oauth_apps()
     if applications:
         finds = list(

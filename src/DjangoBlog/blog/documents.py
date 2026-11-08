@@ -1,3 +1,4 @@
+"""YCY：定义 Elasticsearch 文档与索引管理类，负责访问日志和文章索引的创建、删除与重建。"""
 import time
 
 import elasticsearch.client
@@ -14,15 +15,15 @@ if ELASTICSEARCH_ENABLED:
 
     es_config = settings.ELASTICSEARCH_DSL['default']
 
-    # 处理 hosts 配置，确保有 scheme
+    # YCY：处理 hosts 配置，确保有 scheme
     hosts = es_config['hosts']
     if isinstance(hosts, str):
-        # 如果没有 scheme，自动添加 http://
+        # YCY：如果没有 scheme，自动添加 http://
         if not hosts.startswith(('http://', 'https://')):
             hosts = f'http://{hosts}'
         hosts = [hosts]
     elif isinstance(hosts, list):
-        # 处理列表中的每个 host
+        # YCY：处理列表中的每个 host
         processed_hosts = []
         for host in hosts:
             if not host.startswith(('http://', 'https://')):
@@ -30,34 +31,34 @@ if ELASTICSEARCH_ENABLED:
             processed_hosts.append(host)
         hosts = processed_hosts
 
-    # ES 连接配置（动态适配认证方式）
+    # YCY：ES 连接配置（动态适配认证方式）
     es_params = {
         'hosts': hosts,
         'verify_certs': es_config.get('verify_certs', False),
     }
 
-    # 支持用户名密码认证（ES 8.x 默认启用安全特性）
+    # YCY：支持用户名密码认证（ES 8.x 默认启用安全特性）
     if 'username' in es_config and 'password' in es_config:
         es_params['basic_auth'] = (es_config['username'], es_config['password'])
 
-    # 支持 API Key 认证
+    # YCY：支持 API Key 认证
     if 'api_key' in es_config:
         es_params['api_key'] = es_config['api_key']
 
-    # 支持证书认证
+    # YCY：支持证书认证
     if 'ca_certs' in es_config:
         es_params['ca_certs'] = es_config['ca_certs']
 
-    # 支持客户端证书
+    # YCY：支持客户端证书
     if 'client_cert' in es_config and 'client_key' in es_config:
         es_params['client_cert'] = es_config['client_cert']
         es_params['client_key'] = es_config['client_key']
 
-    # 创建连接
+    # YCY：创建连接
     es = Elasticsearch(**es_params)
     connections.create_connection(**es_params)
 
-    # 设置 GeoIP pipeline
+    # YCY：设置 GeoIP pipeline
     try:
         es.ingest.get_pipeline(id='geoip')
     except elasticsearch.exceptions.NotFoundError:
@@ -104,6 +105,7 @@ class UserAgent(InnerDoc):
 
 
 class ElapsedTimeDocument(Document):
+    """YCY：记录页面 URL、耗时、IP 与 User-Agent 的访问日志文档。"""
     url = Keyword()
     time_taken = Long()
     log_datetime = Date()
@@ -120,10 +122,11 @@ class ElapsedTimeDocument(Document):
 
 
 class ElaspedTimeDocumentManager:
+    """YCY：封装访问日志索引的建立、删除与批量写入。"""
     @staticmethod
     def build_index():
         from elasticsearch import Elasticsearch
-        # 使用已配置好的连接参数
+        # YCY：使用已配置好的连接参数
         client = Elasticsearch(**es_params)
         res = client.indices.exists(index="performance")
         if not res:
@@ -172,6 +175,7 @@ class ElaspedTimeDocumentManager:
 
 
 class ArticleDocument(Document):
+    """YCY：文章在 Elasticsearch 中的文档结构，包含标题、正文与标签。"""
     body = Text(analyzer='ik_max_word', search_analyzer='ik_smart')
     title = Text(analyzer='ik_max_word', search_analyzer='ik_smart')
     author = Object(properties={
@@ -204,6 +208,7 @@ class ArticleDocument(Document):
 
 class ArticleDocumentManager():
 
+    """YCY：把 ORM 文章对象转换为索引文档并重建索引。"""
     def __init__(self):
         self.create_index()
 
@@ -219,6 +224,7 @@ class ArticleDocumentManager():
             pass
 
     def convert_to_doc(self, articles):
+        """YCY：把 Article 实例映射为可写入 ES 的文档字典。"""
         return [
             ArticleDocument(
                 meta={

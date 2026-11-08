@@ -1,3 +1,4 @@
+"""YCY：实现首页、文章详情、分类/标签/作者归档、搜索与文件上传视图，统一处理分页、缓存与 SEO 上下文。"""
 import logging
 import os
 import uuid
@@ -32,19 +33,19 @@ logger = logging.getLogger(__name__)
 
 
 class ArticleListView(CachedListViewMixin, PageNumberMixin, ListView):
-    """
+    """YCY：
     文章列表视图基类（重构版）
 
     使用 Mixin 简化代码，消除重复逻辑
     子类只需实现 get_queryset_data() 和 get_queryset_cache_key() 方法
     """
-    # template_name属性用于指定使用哪个模板进行渲染
+    # YCY：template_name属性用于指定使用哪个模板进行渲染
     template_name = 'blog/article_index.html'
 
-    # context_object_name属性用于给上下文变量取名（在模板中使用该名字）
+    # YCY：context_object_name属性用于给上下文变量取名（在模板中使用该名字）
     context_object_name = 'article_list'
 
-    # 页面类型，分类目录或标签列表等
+    # YCY：页面类型，分类目录或标签列表等
     page_type = ''
     paginate_by = settings.PAGINATE_BY
     page_kwarg = 'page'
@@ -59,16 +60,16 @@ class ArticleListView(CachedListViewMixin, PageNumberMixin, ListView):
 
 
 class IndexView(OptimizedArticleQueryMixin, ArticleListView):
-    """
+    """YCY：
     首页视图（重构版）
 
     继承 OptimizedArticleQueryMixin 获得优化的查询方法
     """
-    # 友情链接类型
+    # YCY：友情链接类型
     link_type = LinkShowType.I
 
     def get_queryset_data(self):
-        # 使用 Mixin 提供的优化查询方法
+        # YCY：使用 Mixin 提供的优化查询方法
         return self.get_optimized_article_queryset().filter(
             type='a', status='p'
         )
@@ -79,7 +80,7 @@ class IndexView(OptimizedArticleQueryMixin, ArticleListView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         blog_setting = get_blog_setting()
-        # 提供基础SEO数据
+        # YCY：提供基础SEO数据
         context['seo_title'] = f"{blog_setting.site_name} | {blog_setting.site_description}"
         context['seo_description'] = blog_setting.site_seo_description
         context['seo_keywords'] = blog_setting.site_keywords
@@ -87,7 +88,7 @@ class IndexView(OptimizedArticleQueryMixin, ArticleListView):
 
 
 class ArticleDetailView(DetailView):
-    '''
+    '''YCY：
     文章详情页面
     '''
     template_name = 'blog/article_detail.html'
@@ -96,22 +97,25 @@ class ArticleDetailView(DetailView):
     context_object_name = "article"
 
     def get_context_data(self, **kwargs):
+        """YCY：构造详情页上下文，并为评论和 SEO 做预处理。"""
         comment_form = CommentForm()
 
-        # 优化：直接查询父评论，减少数据库查询
+        # YCY：优化：直接查询父评论，减少数据库查询
         from comments.models import Comment
+        # YCY：只取顶层已审核评论，子评论由 prefetch_related 预加载。
         parent_comments = Comment.objects.filter(
             article=self.object,
             parent_comment=None,
             is_enable=True
         ).select_related('author').prefetch_related(
-            'comment_set__author'  # 预加载子评论及其作者
+            'comment_set__author'  # YCY：预加载子评论及其作者
         ).order_by('-id')
 
-        # 获取所有评论用于总数显示
+        # YCY：获取所有评论用于总数显示
         article_comments = self.object.comment_list()
 
         blog_setting = get_blog_setting()
+        # YCY：每页评论数由站点配置 article_comment_count 控制。
         paginator = Paginator(parent_comments, blog_setting.article_comment_count)
         page = self.request.GET.get('comment_page', '1')
         if not page.isnumeric():
@@ -145,19 +149,20 @@ class ArticleDetailView(DetailView):
         context = super(ArticleDetailView, self).get_context_data(**kwargs)
         article = self.object
         
-        # 添加基础SEO数据
+        # YCY：添加基础SEO数据
         blog_setting = get_blog_setting()
         from django.utils.html import strip_tags
         from django.utils.text import Truncator
         from djangoblog.utils import CommonMarkdown
         
-        # 处理description：markdown -> HTML -> 纯文本，彻底去除格式
+        # YCY：处理description：markdown -> HTML -> 纯文本，彻底去除格式
+        # YCY：SEO 描述先转 HTML 再去标签，避免把 Markdown 符号带进摘要。
         html_content = CommonMarkdown.get_markdown(article.body)
         description = strip_tags(html_content)
-        description = ' '.join(description.split())  # 规范化空白字符
+        description = ' '.join(description.split())  # YCY：规范化空白字符
         description = Truncator(description).chars(150, truncate='...')
         
-        # 处理keywords：去除空格，用逗号分隔
+        # YCY：处理keywords：去除空格，用逗号分隔
         tags = [tag.name.strip() for tag in article.tags.all()]
         keywords = ", ".join(tags) if tags else blog_setting.site_keywords
         
@@ -165,17 +170,17 @@ class ArticleDetailView(DetailView):
         context['seo_description'] = description
         context['seo_keywords'] = keywords
         
-        # 触发文章详情加载钩子，让插件可以添加额外的上下文数据
+        # YCY：触发文章详情加载钩子，让插件可以添加额外的上下文数据
         from djangoblog.plugin_manage.hook_constants import ARTICLE_DETAIL_LOAD
         hooks.run_action(ARTICLE_DETAIL_LOAD, article=article, context=context, request=self.request)
         
-        # Action Hook, 通知插件"文章详情已获取"
+        # YCY：Action Hook, 通知插件"文章详情已获取"
         hooks.run_action('after_article_body_get', article=article, request=self.request)
         return context
 
 
 class CategoryDetailView(SlugCachedMixin, OptimizedArticleQueryMixin, ArticleListView):
-    """
+    """YCY：
     分类目录列表（重构版）
 
     使用 SlugCachedMixin 避免重复查询 Category
@@ -186,7 +191,7 @@ class CategoryDetailView(SlugCachedMixin, OptimizedArticleQueryMixin, ArticleLis
     slug_model = Category
 
     def get_queryset_data(self):
-        # 使用 Mixin 缓存的对象，只查询一次
+        # YCY：使用 Mixin 缓存的对象，只查询一次
         category = self.get_slug_object()
         categorynames = [c.name for c in category.get_sub_categorys()]
 
@@ -195,7 +200,7 @@ class CategoryDetailView(SlugCachedMixin, OptimizedArticleQueryMixin, ArticleLis
         )
 
     def get_queryset_cache_key(self):
-        # 复用缓存的对象，不再重复查询数据库
+        # YCY：复用缓存的对象，不再重复查询数据库
         category = self.get_slug_object()
         return f'category_list_{category.name}_{self.page_number}'
 
@@ -211,7 +216,7 @@ class CategoryDetailView(SlugCachedMixin, OptimizedArticleQueryMixin, ArticleLis
         kwargs['page_type'] = CategoryDetailView.page_type
         kwargs['tag_name'] = categoryname
         
-        # 添加基础SEO数据
+        # YCY：添加基础SEO数据
         blog_setting = get_blog_setting()
         article_count = self.get_queryset().count()
         kwargs['seo_title'] = f"{categoryname} | {blog_setting.site_name}"
@@ -222,7 +227,7 @@ class CategoryDetailView(SlugCachedMixin, OptimizedArticleQueryMixin, ArticleLis
 
 
 class AuthorDetailView(OptimizedArticleQueryMixin, ArticleListView):
-    """
+    """YCY：
     作者详情页（重构版）
 
     使用 OptimizedArticleQueryMixin 优化文章查询
@@ -245,7 +250,7 @@ class AuthorDetailView(OptimizedArticleQueryMixin, ArticleListView):
         kwargs['page_type'] = AuthorDetailView.page_type
         kwargs['tag_name'] = author_name
         
-        # 添加基础SEO数据
+        # YCY：添加基础SEO数据
         blog_setting = get_blog_setting()
         article_count = self.get_queryset().count()
         kwargs['seo_title'] = f"{author_name} 的文章 | {blog_setting.site_name}"
@@ -256,7 +261,7 @@ class AuthorDetailView(OptimizedArticleQueryMixin, ArticleListView):
 
 
 class TagDetailView(SlugCachedMixin, OptimizedArticleQueryMixin, ArticleListView):
-    """
+    """YCY：
     标签列表页面（重构版）
 
     使用 SlugCachedMixin 避免重复查询 Tag
@@ -267,14 +272,14 @@ class TagDetailView(SlugCachedMixin, OptimizedArticleQueryMixin, ArticleListView
     slug_model = Tag
 
     def get_queryset_data(self):
-        # 使用 Mixin 缓存的对象，只查询一次
+        # YCY：使用 Mixin 缓存的对象，只查询一次
         tag = self.get_slug_object()
         return self.get_optimized_article_queryset().filter(
             tags__name=tag.name, type='a', status='p'
         )
 
     def get_queryset_cache_key(self):
-        # 复用缓存的对象，不再重复查询数据库
+        # YCY：复用缓存的对象，不再重复查询数据库
         tag = self.get_slug_object()
         return f'tag_{tag.name}_{self.page_number}'
 
@@ -283,7 +288,7 @@ class TagDetailView(SlugCachedMixin, OptimizedArticleQueryMixin, ArticleListView
         kwargs['page_type'] = TagDetailView.page_type
         kwargs['tag_name'] = tag.name
         
-        # 添加基础SEO数据
+        # YCY：添加基础SEO数据
         blog_setting = get_blog_setting()
         article_count = self.get_queryset().count()
         kwargs['seo_title'] = f"{tag.name} | {blog_setting.site_name}"
@@ -294,7 +299,7 @@ class TagDetailView(SlugCachedMixin, OptimizedArticleQueryMixin, ArticleListView
 
 
 class ArchivesView(OptimizedArticleQueryMixin, ArticleListView):
-    """
+    """YCY：
     文章归档页面（重构版）
 
     使用 OptimizedArticleQueryMixin 优化文章查询
@@ -312,6 +317,7 @@ class ArchivesView(OptimizedArticleQueryMixin, ArticleListView):
 
 
 class LinkListView(ListView):
+    """YCY：友情链接列表视图，只展示启用项。"""
     model = Links
     template_name = 'blog/links_list.html'
 
@@ -320,12 +326,13 @@ class LinkListView(ListView):
 
 
 class EsSearchView(SearchView):
+    """YCY：Haystack 搜索视图，启用结果高亮与拼写建议。"""
     def build_form(self, form_kwargs=None):
-        """Override to enable highlighting"""
+        """YCY：Override to enable highlighting"""
         if form_kwargs is None:
             form_kwargs = {}
 
-        # Enable highlighting for search results
+        # YCY：Enable highlighting for search results
         from haystack.query import SearchQuerySet
         if self.searchqueryset is None:
             sqs = SearchQuerySet().highlight()
@@ -353,7 +360,7 @@ class EsSearchView(SearchView):
 
 @csrf_exempt
 def fileupload(request):
-    """
+    """YCY：
     该方法需自己写调用端来上传图片，该方法仅提供图床功能
     :param request:
     :return:
@@ -362,6 +369,7 @@ def fileupload(request):
         sign = request.GET.get('sign', None)
         if not sign:
             return HttpResponseForbidden()
+        # YCY：上传接口用双 SHA-256 签名做简易鉴权，强度低于独立令牌。
         if not sign == get_sha256(get_sha256(settings.SECRET_KEY)):
             return HttpResponseForbidden()
         response = []
@@ -391,10 +399,10 @@ def fileupload(request):
         return HttpResponse("only for post")
 
 
-# ===== 错误处理视图 =====
-# 注意：这些函数保留是为了向后兼容
-# 实际实现已经移动到 djangoblog.error_views
-# 可以在 urls.py 中直接引用新的实现
+# YCY：===== 错误处理视图 =====
+# YCY：注意：这些函数保留是为了向后兼容
+# YCY：实际实现已经移动到 djangoblog.error_views
+# YCY：可以在 urls.py 中直接引用新的实现
 
 from djangoblog.error_views import (
     page_not_found_view,
@@ -404,5 +412,6 @@ from djangoblog.error_views import (
 
 
 def clean_cache_view(request):
+    """YCY：调试用缓存清理入口，直接清空默认缓存。"""
     cache.clear()
     return HttpResponse('ok')

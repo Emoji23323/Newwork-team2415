@@ -1,3 +1,4 @@
+"""ZXL：封装邮箱验证码的生成、写入、读取与校验。"""
 import typing
 from datetime import timedelta
 
@@ -11,7 +12,7 @@ _code_ttl = timedelta(minutes=5)
 
 
 def send_verify_email(to_mail: str, code: str, subject: str = _("Verify Email")):
-    """发送重设密码验证码
+    """ZXL：发送重设密码验证码
     Args:
         to_mail: 接受邮箱
         subject: 邮件主题
@@ -24,7 +25,7 @@ def send_verify_email(to_mail: str, code: str, subject: str = _("Verify Email"))
 
 
 def verify(email: str, code: str) -> typing.Optional[str]:
-    """验证code是否有效
+    """ZXL：验证code是否有效
     Args:
         email: 请求邮箱
         code: 验证码
@@ -40,10 +41,10 @@ def verify(email: str, code: str) -> typing.Optional[str]:
 
 
 def set_code(email: str, code: str):
-    """设置code"""
+    """ZXL：设置code"""
     cache.set(email, code, _code_ttl.seconds)
 
 
 def get_code(email: str) -> typing.Optional[str]:
-    """获取code"""
+    """ZXL：获取code"""
     return cache.get(email)

@@ -1,3 +1,4 @@
+"""YCY：管理命令：向百度推送文章 URL，加快收录。"""
 from django.core.management.base import BaseCommand
 
 from djangoblog.spider_notify import SpiderNotify
@@ -8,6 +9,7 @@ site = get_current_site().domain
 
 
 class Command(BaseCommand):
+    """YCY：封装百度推送命令及参数。"""
     help = 'notify baidu url'
 
     def add_arguments(self, parser):
@@ -26,6 +28,7 @@ class Command(BaseCommand):
         return url
 
     def handle(self, *args, **options):
+        """YCY：拼接站点 URL 并调用推送接口。"""
         type = options['data_type']
         self.stdout.write('start get %s' % type)
 

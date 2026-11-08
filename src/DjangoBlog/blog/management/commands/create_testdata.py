@@ -1,3 +1,4 @@
+"""YCY：管理命令：生成文章、分类与标签测试数据。"""
 from django.contrib.auth import get_user_model
 from django.contrib.auth.hashers import make_password
 from django.core.management.base import BaseCommand
@@ -6,6 +7,7 @@ from blog.models import Article, Tag, Category
 
 
 class Command(BaseCommand):
+    """YCY：批量造数，便于本地联调与演示。"""
     help = 'create test datas'
 
     def handle(self, *args, **options):

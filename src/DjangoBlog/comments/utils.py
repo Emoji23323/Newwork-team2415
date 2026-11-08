@@ -1,3 +1,4 @@
+"""PZQ：异步发送评论通知邮件。"""
 import logging
 
 from django.utils.translation import gettext_lazy as _
@@ -9,6 +10,7 @@ logger = logging.getLogger(__name__)
 
 
 def send_comment_email(comment):
+    """PZQ：在后台线程中发送评论通知，避免阻塞请求。"""
     site = get_current_site().domain
     subject = _('Thanks for your comment')
     article_url = f"https://{site}{comment.article.get_absolute_url()}"

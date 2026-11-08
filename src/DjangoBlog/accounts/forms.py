@@ -1,3 +1,4 @@
+"""ZXL：定义登录、注册与找回密码表单及其字段校验。"""
 from django import forms
 from django.contrib.auth import get_user_model, password_validation
 from django.contrib.auth.forms import AuthenticationForm, UserCreationForm
@@ -9,6 +10,7 @@ from .models import BlogUser
 
 
 class LoginForm(AuthenticationForm):
+    """ZXL：登录表单，兼容用户名或邮箱输入。"""
     def __init__(self, *args, **kwargs):
         super(LoginForm, self).__init__(*args, **kwargs)
         self.fields['username'].widget = widgets.TextInput(
@@ -18,6 +20,7 @@ class LoginForm(AuthenticationForm):
 
 
 class RegisterForm(UserCreationForm):
+    """ZXL：注册表单，校验邮箱唯一性与两次密码一致性。"""
     def __init__(self, *args, **kwargs):
         super(RegisterForm, self).__init__(*args, **kwargs)
 
@@ -42,6 +45,7 @@ class RegisterForm(UserCreationForm):
 
 
 class ForgetPasswordForm(forms.Form):
+    """ZXL：找回密码表单，校验邮箱、验证码与新密码。"""
     new_password1 = forms.CharField(
         label=_("New password"),
         widget=forms.PasswordInput(
@@ -96,7 +100,7 @@ class ForgetPasswordForm(forms.Form):
         if not BlogUser.objects.filter(
                 email=user_email
         ).exists():
-            # todo 这里的报错提示可以判断一个邮箱是不是注册过，如果不想暴露可以修改
+            # ZXL：todo 这里的报错提示可以判断一个邮箱是不是注册过，如果不想暴露可以修改
             raise ValidationError(_("email does not exist"))
         return user_email
 
@@ -112,6 +116,7 @@ class ForgetPasswordForm(forms.Form):
 
 
 class ForgetPasswordCodeForm(forms.Form):
+    """ZXL：发送验证码表单，只接受邮箱字段。"""
     email = forms.EmailField(
         label=_('Email'),
     )

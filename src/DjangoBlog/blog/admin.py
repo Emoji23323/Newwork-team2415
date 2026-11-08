@@ -1,3 +1,4 @@
+"""YCY：配置文章、分类、标签、友情链接、侧栏与站点配置的后台表单和批量操作。"""
 from django import forms
 from django.contrib import admin
 from django.contrib.auth import get_user_model
@@ -5,13 +6,14 @@ from django.urls import reverse
 from django.utils.html import format_html
 from django.utils.translation import gettext_lazy as _
 
-# Register your models here.
+# YCY：Register your models here.
 from .models import Article, Category, Tag, Links, SideBar, BlogSettings
 
 
 class ArticleForm(forms.ModelForm):
-    # body = forms.CharField(widget=AdminPagedownWidget())
+    # YCY：body = forms.CharField(widget=AdminPagedownWidget())
 
+    """YCY：后台文章编辑表单，提供批量发布、转草稿与评论开关操作。"""
     class Meta:
         model = Article
         fields = '__all__'
@@ -40,6 +42,7 @@ open_article_commentstatus.short_description = _('Open article comments')
 
 
 class ArticlelAdmin(admin.ModelAdmin):
+    """YCY：文章后台管理类，限制作者选择并生成前台预览链接。"""
     list_per_page = 20
     search_fields = ('body', 'title')
     form = ArticleForm
@@ -111,33 +114,34 @@ class SideBarAdmin(admin.ModelAdmin):
 
 
 class BlogSettingsAdmin(admin.ModelAdmin):
-    """单例配置Admin - 直接跳转到编辑页面"""
+    """YCY：单例配置Admin - 直接跳转到编辑页面"""
 
     def has_add_permission(self, request):
-        """如果已经存在配置，则禁止添加"""
+        """YCY：如果已经存在配置，则禁止添加"""
         return not BlogSettings.objects.exists()
 
     def has_delete_permission(self, request, obj=None):
-        """禁止删除配置"""
+        """YCY：禁止删除配置"""
         return False
 
     def changelist_view(self, request, extra_context=None):
-        """列表页直接跳转到编辑页面"""
+        """YCY：列表页直接跳转到编辑页面"""
         from django.http import HttpResponseRedirect
         obj = BlogSettings.objects.first()
         if obj:
             return HttpResponseRedirect(
                 reverse('admin:blog_blogsettings_change', args=[obj.pk])
             )
-        # 如果不存在配置，跳转到添加页面
+        # YCY：如果不存在配置，跳转到添加页面
         return HttpResponseRedirect(
             reverse('admin:blog_blogsettings_add')
         )
 
     def save_model(self, request, obj, form, change):
-        """保存设置时清除缓存"""
+        """YCY：保存设置时清除缓存"""
         super().save_model(request, obj, form, change)
-        # 确保缓存被清除
+        # YCY：确保缓存被清除
         from djangoblog.utils import cache
+        # YCY：配置是全局单例，保存后清空整体缓存最直接也最安全。
         cache.clear()
         self.message_user(request, '设置已保存，缓存已清除')

@@ -1,4 +1,5 @@
-# Create your models here.
+"""PHJ：定义第三方账号与平台授权配置模型。"""
+# PHJ：Create your models here.
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models
@@ -7,6 +8,7 @@ from django.utils.translation import gettext_lazy as _
 
 
 class OAuthUser(models.Model):
+    """PHJ：保存第三方 openid、昵称、头像、令牌与绑定的本站用户。"""
     author = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         verbose_name=_('author'),
@@ -33,6 +35,7 @@ class OAuthUser(models.Model):
 
 
 class OAuthConfig(models.Model):
+    """PHJ：保存各平台的 AppKey、AppSecret、回调地址与启用开关。"""
     TYPE = (
         ('weibo', _('weibo')),
         ('google', _('google')),
@@ -54,6 +57,8 @@ class OAuthConfig(models.Model):
     last_modify_time = models.DateTimeField(_('last modify time'), default=now)
 
     def clean(self):
+        # PHJ：数据库层没有唯一约束，重复配置只能在应用层拦截。
+        """PHJ：应用层校验同一平台只能存在一条配置。"""
         if OAuthConfig.objects.filter(
                 type=self.type).exclude(id=self.id).count():
             raise ValidationError(_(self.type + _('already exists')))

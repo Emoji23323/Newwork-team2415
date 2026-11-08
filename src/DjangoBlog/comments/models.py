@@ -1,3 +1,4 @@
+"""PZQ：定义评论、多级回复与 Emoji 反应模型，并封装反应统计。"""
 from django.conf import settings
 from django.db import models
 from django.utils.timezone import now
@@ -6,9 +7,10 @@ from django.utils.translation import gettext_lazy as _
 from blog.models import Article
 
 
-# Create your models here.
+# PZQ：Create your models here.
 
 class Comment(models.Model):
+    """PZQ：评论实体，关联文章、作者与父评论，并用 is_enable 表示审核状态。"""
     body = models.TextField('正文', max_length=300)
     creation_time = models.DateTimeField(_('creation time'), default=now)
     last_modify_time = models.DateTimeField(_('last modify time'), default=now)
@@ -35,9 +37,9 @@ class Comment(models.Model):
         verbose_name_plural = verbose_name
         get_latest_by = 'id'
         indexes = [
-            # 优化评论列表查询：article + parent_comment + is_enable组合索引
+            # PZQ：优化评论列表查询：article + parent_comment + is_enable组合索引
             models.Index(fields=['article', 'parent_comment', 'is_enable'], name='idx_art_parent_enable'),
-            # 优化侧边栏评论查询：is_enable + id组合索引
+            # PZQ：优化侧边栏评论查询：is_enable + id组合索引
             models.Index(fields=['is_enable', '-id'], name='idx_enable_id'),
         ]
 
@@ -45,7 +47,7 @@ class Comment(models.Model):
         return self.body
 
     def get_reactions_summary(self, user=None):
-        """
+        """PZQ：
         获取评论的 reactions 统计信息
         返回格式: {
             '👍': {
@@ -59,6 +61,7 @@ class Comment(models.Model):
         """
         from django.db.models import Count
 
+        # PZQ：先按类型聚合计数，再单独取每类最多 10 个用户。
         reactions = CommentReaction.objects.filter(
             comment=self
         ).values('reaction_type').annotate(count=Count('id'))
@@ -67,11 +70,11 @@ class Comment(models.Model):
         for reaction in reactions:
             emoji = reaction['reaction_type']
 
-            # 获取该 emoji 的所有点赞用户
+            # PZQ：获取该 emoji 的所有点赞用户
             reaction_users = CommentReaction.objects.filter(
                 comment=self,
                 reaction_type=emoji
-            ).select_related('user')[:10]  # 最多显示10个用户
+            ).select_related('user')[:10]  # PZQ：最多显示10个用户
 
             user_names = [r.user.nickname or r.user.username for r in reaction_users]
 
@@ -92,7 +95,7 @@ class Comment(models.Model):
 
 
 class CommentReaction(models.Model):
-    """
+    """PZQ：
     评论的 Emoji 反应/点赞
     """
     REACTION_CHOICES = [
@@ -127,7 +130,8 @@ class CommentReaction(models.Model):
     class Meta:
         verbose_name = _('comment reaction')
         verbose_name_plural = _('comment reactions')
-        # 每个用户对同一评论的同一种 emoji 只能点一次
+        # PZQ：每个用户对同一评论的同一种 emoji 只能点一次
+        # PZQ：数据库层保证反应幂等，避免并发重复插入。
         unique_together = ['comment', 'user', 'reaction_type']
         indexes = [
             models.Index(fields=['comment', 'reaction_type'], name='idx_comment_reaction'),

@@ -1,3 +1,4 @@
+"""YCY：统计请求渲染耗时并注入调试占位符，可选写入 Elasticsearch 访问日志。"""
 import logging
 import time
 
@@ -10,17 +11,19 @@ logger = logging.getLogger(__name__)
 
 
 class OnlineMiddleware(object):
+    """YCY：请求级计时中间件，仅处理非流式响应。"""
     def __init__(self, get_response=None):
         self.get_response = get_response
         super().__init__()
 
     def __call__(self, request):
-        ''' page render time '''
+        '''YCY： page render time '''
         start_time = time.time()
         response = self.get_response(request)
         http_user_agent = request.META.get('HTTP_USER_AGENT', '')
         ip, _ = get_client_ip(request)
         user_agent = parse(http_user_agent)
+        # YCY：流式响应无法安全修改 content，直接跳过统计改写。
         if not response.streaming:
             try:
                 cast_time = time.time() - start_time

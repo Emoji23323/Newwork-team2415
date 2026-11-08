@@ -1,3 +1,4 @@
+"""ZXL：定义自定义用户模型 BlogUser，扩展昵称、来源与时间字段。"""
 from django.contrib.auth.models import AbstractUser
 from django.db import models
 from django.urls import reverse
@@ -6,9 +7,10 @@ from django.utils.translation import gettext_lazy as _
 from djangoblog.utils import get_current_site
 
 
-# Create your models here.
+# ZXL：Create your models here.
 
 class BlogUser(AbstractUser):
+    """ZXL：继承 AbstractUser 的用户模型，是站内作者与评论者的统一身份。"""
     nickname = models.CharField(_('nick name'), max_length=100, blank=True)
     creation_time = models.DateTimeField(_('creation time'), default=now)
     last_modify_time = models.DateTimeField(_('last modify time'), default=now)

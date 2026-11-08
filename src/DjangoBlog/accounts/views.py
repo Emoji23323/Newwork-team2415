@@ -1,3 +1,4 @@
+"""ZXL：实现注册、登录、登出、邮箱验证与找回密码流程。"""
 import logging
 from django.utils.translation import gettext_lazy as _
 from django.conf import settings
@@ -25,10 +26,10 @@ from .models import BlogUser
 logger = logging.getLogger(__name__)
 
 
-# Create your views here.
+# ZXL：Create your views here.
 
 class RegisterView(SecureFormView):
-    """
+    """ZXL：
     用户注册视图（重构版）
 
     使用 SecureFormView 基类，自动提供 CSRF 保护
@@ -37,8 +38,10 @@ class RegisterView(SecureFormView):
     template_name = 'account/registration_form.html'
 
     def form_valid(self, form):
+        """ZXL：校验通过后落库、生成签名链接并发送邮件。"""
         if form.is_valid():
             user = form.save(False)
+            # ZXL：注册后先置为未激活，点击邮件链接后才可登录。
             user.is_active = False
             user.source = 'Register'
             user.save(True)
@@ -78,7 +81,7 @@ class RegisterView(SecureFormView):
 
 
 class LogoutView(LogoutRedirectView):
-    """
+    """ZXL：
     用户登出视图（重构版）
 
     使用 LogoutRedirectView 基类，自动禁用缓存
@@ -88,14 +91,14 @@ class LogoutView(LogoutRedirectView):
     def get(self, request, *args, **kwargs):
         logout(request)
         delete_sidebar_cache()
-        # 获取响应对象并删除登录标记 cookie
+        # ZXL：获取响应对象并删除登录标记 cookie
         response = super(LogoutView, self).get(request, *args, **kwargs)
         response.delete_cookie('logged_user')
         return response
 
 
 class LoginView(LoginFormView):
-    """
+    """ZXL：
     用户登录视图（重构版）
 
     使用 LoginFormView 基类，自动提供：
@@ -117,33 +120,36 @@ class LoginView(LoginFormView):
         return super(LoginView, self).get_context_data(**kwargs)
 
     def form_valid(self, form):
+        """ZXL：认证成功后建立会话并按选项设置有效期。"""
         form = AuthenticationForm(data=self.request.POST, request=self.request)
 
         if form.is_valid():
             delete_sidebar_cache()
             logger.info(self.redirect_field_name)
 
+            # ZXL：认证通过后建立服务端会话。
             auth.login(self.request, form.get_user())
-            # 设置登录有效期
+            # ZXL：设置登录有效期
             if self.request.POST.get("remember"):
                 self.request.session.set_expiry(settings.REMEMBER_ME_LOGIN_TTL)
                 cookie_max_age = settings.REMEMBER_ME_LOGIN_TTL
             else:
-                # 使用Django默认的2周
+                # ZXL：使用Django默认的2周
                 self.request.session.set_expiry(settings.SESSION_COOKIE_AGE)
                 cookie_max_age = settings.SESSION_COOKIE_AGE
 
-            # 获取响应对象并设置登录标记 cookie
+            # ZXL：获取响应对象并设置登录标记 cookie
             response = super(LoginView, self).form_valid(form)
+            # ZXL：写入前端可读的登录标记，用于页面状态切换。
             response.set_cookie(
                 'logged_user',
                 'true',
                 max_age=cookie_max_age,
-                httponly=False,  # 允许 JavaScript 访问
+                httponly=False,  # ZXL：允许 JavaScript 访问
                 samesite='Lax'
             )
             return response
-            # return HttpResponseRedirect('/')
+            # ZXL：return HttpResponseRedirect('/')
         else:
             return self.render_to_response({
                 'form': form
@@ -151,6 +157,7 @@ class LoginView(LoginFormView):
 
     def get_success_url(self):
 
+        """ZXL：只允许跳转到本站地址，避免开放重定向。"""
         redirect_to = self.request.POST.get(self.redirect_field_name)
         if not url_has_allowed_host_and_scheme(
                 url=redirect_to, allowed_hosts=[
@@ -160,6 +167,7 @@ class LoginView(LoginFormView):
 
 
 def account_result(request):
+    """ZXL：展示注册/验证结果页。"""
     type = request.GET.get('type')
     id = request.GET.get('id')
 
@@ -193,7 +201,7 @@ def account_result(request):
 
 
 class ForgetPasswordView(SecureFormView):
-    """
+    """ZXL：
     忘记密码视图（重构版）
 
     使用 SecureFormView 基类，自动提供 CSRF 保护
@@ -213,6 +221,7 @@ class ForgetPasswordView(SecureFormView):
 
 class ForgetPasswordEmailCode(View):
 
+    """ZXL：异步发送找回密码验证码。"""
     def post(self, request: HttpRequest):
         form = ForgetPasswordCodeForm(request.POST)
         if not form.is_valid():

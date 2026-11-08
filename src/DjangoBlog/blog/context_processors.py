@@ -1,3 +1,4 @@
+"""YCY：向所有模板注入站点 SEO 与公开配置，避免每个视图重复查询。"""
 import logging
 
 from django.utils import timezone
@@ -9,10 +10,11 @@ logger = logging.getLogger(__name__)
 
 
 def seo_processor(requests):
+    """YCY：构造模板通用的站点标题、描述、关键词与配色信息。"""
     key = 'seo_processor'
     value = cache.get(key)
     if value:
-        # 更新动态值（不需要缓存的内容）
+        # YCY：更新动态值（不需要缓存的内容）
         value['SITE_BASE_URL'] = requests.scheme + '://' + requests.get_host() + '/'
         value['CURRENT_YEAR'] = timezone.now().year
         return value
@@ -20,7 +22,7 @@ def seo_processor(requests):
         logger.info('set processor cache.')
         setting = get_blog_setting()
 
-        # 优化查询：预加载关联数据
+        # YCY：优化查询：预加载关联数据
         nav_category_list = Category.objects.all()
         nav_pages = Article.objects.filter(
             type='p',
@@ -36,8 +38,8 @@ def seo_processor(requests):
             'SITE_KEYWORDS': setting.site_keywords,
             'SITE_BASE_URL': requests.scheme + '://' + requests.get_host() + '/',
             'ARTICLE_SUB_LENGTH': setting.article_sub_length,
-            'nav_category_list': nav_category_list,  # 保持QuerySet
-            'nav_pages': nav_pages,  # 保持QuerySet
+            'nav_category_list': nav_category_list,  # YCY：保持QuerySet
+            'nav_pages': nav_pages,  # YCY：保持QuerySet
             'OPEN_SITE_COMMENT': setting.open_site_comment,
             'BEIAN_CODE': setting.beian_code,
             'ANALYTICS_CODE': setting.analytics_code,

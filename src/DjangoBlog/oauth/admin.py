@@ -1,7 +1,8 @@
+"""PHJ：配置第三方账号与授权配置的后台展示。"""
 import logging
 
 from django.contrib import admin
-# Register your models here.
+# PHJ：Register your models here.
 from django.urls import reverse
 from django.utils.html import format_html
 
@@ -9,6 +10,7 @@ logger = logging.getLogger(__name__)
 
 
 class OAuthUserAdmin(admin.ModelAdmin):
+    """PHJ：第三方账号后台，展示绑定用户、头像与平台类型。"""
     search_fields = ('nickname', 'email')
     list_per_page = 20
     list_display = (
@@ -50,5 +52,6 @@ class OAuthUserAdmin(admin.ModelAdmin):
 
 
 class OAuthConfigAdmin(admin.ModelAdmin):
+    """PHJ：平台授权配置后台，维护 AppKey、Secret 与回调地址。"""
     list_display = ('type', 'appkey', 'appsecret', 'is_enable')
     list_filter = ('type',)

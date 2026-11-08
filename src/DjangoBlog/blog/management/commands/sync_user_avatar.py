@@ -1,3 +1,4 @@
+"""YCY：管理命令：把第三方头像同步到本站用户记录。"""
 import requests
 from django.core.management.base import BaseCommand
 from django.templatetags.static import static
@@ -8,6 +9,7 @@ from oauth.oauthmanager import get_manager_by_type
 
 
 class Command(BaseCommand):
+    """YCY：遍历用户并同步头像地址。"""
     help = 'sync user avatar'
 
     def test_picture(self, url):
@@ -18,6 +20,7 @@ class Command(BaseCommand):
             pass
 
     def handle(self, *args, **options):
+        """YCY：处理头像下载、校验与保存。"""
         static_url = static("../")
         users = OAuthUser.objects.all()
         self.stdout.write(f'开始同步{len(users)}个用户头像')

@@ -1,4 +1,5 @@
-# Create your views here.
+"""PZQ：处理评论提交、审核开关与表情反应的 JSON 接口。"""
+# PZQ：Create your views here.
 from django.core.exceptions import ValidationError
 from django.http import HttpResponseRedirect, JsonResponse
 from django.shortcuts import get_object_or_404
@@ -12,7 +13,7 @@ from .models import Comment, CommentReaction
 
 
 class CommentPostView(AuthenticatedFormView):
-    """
+    """PZQ：
     评论提交视图
 
     使用 AuthenticatedFormView 基类，自动提供：
@@ -38,18 +39,20 @@ class CommentPostView(AuthenticatedFormView):
         })
 
     def form_valid(self, form):
-        """提交的数据验证合法后的逻辑"""
+        """PZQ：提交的数据验证合法后的逻辑"""
         user = self.request.user
         author = BlogUser.objects.get(pk=user.pk)
         article_id = self.kwargs['article_id']
         article = get_object_or_404(Article, pk=article_id)
 
+        # PZQ：status 的合法值只有 d/p，第二个条件实际不可达。
         if article.comment_status == 'c' or article.status == 'c':
             raise ValidationError("该文章评论已关闭.")
         comment = form.save(False)
         comment.article = article
         from djangoblog.utils import get_blog_setting
         settings = get_blog_setting()
+        # PZQ：站点免审核时评论直接可见，否则等待后台审核。
         if not settings.comment_need_review:
             comment.is_enable = True
         comment.author = author
@@ -59,6 +62,7 @@ class CommentPostView(AuthenticatedFormView):
                 pk=form.cleaned_data['parent_comment_id'])
             comment.parent_comment = parent_comment
 
+        # PZQ：保存后由 post_save 信号清理缓存并异步发送通知邮件。
         comment.save(True)
         return HttpResponseRedirect(
             "%s#div-comment-%d" %
@@ -66,17 +70,17 @@ class CommentPostView(AuthenticatedFormView):
 
 
 class CommentReactionView(View):
-    """
+    """PZQ：
     评论 Emoji 反应 API
     GET /comment/<comment_id>/react - 获取 reactions（公开）
     POST /comment/<comment_id>/react - 切换 reaction（需要登录）
     """
 
     def get(self, request, comment_id):
-        """获取评论的 reactions 数据（公开访问）"""
+        """PZQ：获取评论的 reactions 数据（公开访问）"""
         comment = get_object_or_404(Comment, id=comment_id, is_enable=True)
 
-        # 传递用户信息，如果未登录则传递 None
+        # PZQ：传递用户信息，如果未登录则传递 None
         user = request.user if request.user.is_authenticated else None
         reactions_data = comment.get_reactions_summary(user)
 
@@ -86,26 +90,28 @@ class CommentReactionView(View):
         })
 
     def post(self, request, comment_id):
-        # POST 需要登录验证
+        # PZQ：POST 需要登录验证
+        """PZQ：校验登录与表情类型后，用创建/删除实现幂等切换。"""
         if not request.user.is_authenticated:
             return JsonResponse({
                 'success': False,
                 'error': 'Authentication required'
             }, status=401)
-        # 获取评论（只有已启用的评论才能点赞）
+        # PZQ：获取评论（只有已启用的评论才能点赞）
         comment = get_object_or_404(Comment, id=comment_id, is_enable=True)
 
-        # 获取 reaction 类型
+        # PZQ：获取 reaction 类型
         reaction_type = request.POST.get('reaction_type')
 
-        # 验证 reaction_type 是否合法
+        # PZQ：验证 reaction_type 是否合法
         valid_reactions = [choice[0] for choice in CommentReaction.REACTION_CHOICES]
         if reaction_type not in valid_reactions:
             return JsonResponse({
                 'error': 'Invalid reaction type'
             }, status=400)
 
-        # 切换 reaction（如果已存在则删除，否则创建）
+        # PZQ：切换 reaction（如果已存在则删除，否则创建）
+        # PZQ：先尝试创建，已存在则删除，形成点赞与取消的切换语义。
         reaction, created = CommentReaction.objects.get_or_create(
             comment=comment,
             user=request.user,
@@ -113,13 +119,13 @@ class CommentReactionView(View):
         )
 
         if not created:
-            # 已存在，删除它（取消点赞）
+            # PZQ：已存在，删除它（取消点赞）
             reaction.delete()
             action = 'removed'
         else:
             action = 'added'
 
-        # 返回该评论的所有 reactions 统计
+        # PZQ：返回该评论的所有 reactions 统计
         reactions_data = comment.get_reactions_summary(request.user)
 
         return JsonResponse({

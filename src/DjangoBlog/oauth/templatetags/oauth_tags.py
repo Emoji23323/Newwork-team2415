@@ -1,3 +1,4 @@
+"""PHJ：向模板提供已启用的第三方登录应用列表。"""
 from django import template
 from django.urls import reverse
 
@@ -8,6 +9,7 @@ register = template.Library()
 
 @register.inclusion_tag('oauth/oauth_applications.html')
 def load_oauth_applications(request):
+    """PHJ：读取启用的平台配置并返回模板上下文。"""
     applications = get_oauth_apps()
     if applications:
         baseurl = reverse('oauth:oauthlogin')

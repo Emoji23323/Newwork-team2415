@@ -1,3 +1,4 @@
+"""YCY：提供 Markdown 渲染、导航、侧栏、分页、高亮、头像与插件资源等模板标签。"""
 import hashlib
 import json
 import logging
@@ -52,13 +53,13 @@ def datetimeformat(data):
 @register.filter()
 @stringfilter
 def custom_markdown(content):
-    """
+    """YCY：
     通用markdown过滤器，应用文章内容插件
     主要用于文章内容处理
     """
     html_content = CommonMarkdown.get_markdown(content)
     
-    # 然后应用插件过滤器优化HTML
+    # YCY：然后应用插件过滤器优化HTML
     from djangoblog.plugin_manage import hooks
     from djangoblog.plugin_manage.hook_constants import ARTICLE_CONTENT_HOOK_NAME
     optimized_html = hooks.apply_filters(ARTICLE_CONTENT_HOOK_NAME, html_content)
@@ -75,7 +76,7 @@ def sidebar_markdown(content):
 
 @register.simple_tag(takes_context=True)
 def render_article_content(context, article, is_summary=False):
-    """
+    """YCY：
     渲染文章内容，包含完整的上下文信息供插件使用
     
     Args:
@@ -86,40 +87,40 @@ def render_article_content(context, article, is_summary=False):
     if not article or not hasattr(article, 'body'):
         return ''
     
-    # 先转换Markdown为HTML
+    # YCY：先转换Markdown为HTML
     html_content = CommonMarkdown.get_markdown(article.body)
     
-    # 如果是摘要模式，先截断内容再应用插件
+    # YCY：如果是摘要模式，先截断内容再应用插件
     if is_summary:
-        # 从配置中获取摘要长度
+        # YCY：从配置中获取摘要长度
         from djangoblog.utils import get_blog_setting
         from django.template.defaultfilters import truncatechars_html
 
         blogsetting = get_blog_setting()
         summary_length = blogsetting.article_sub_length
 
-        # 使用truncatechars_html保留HTML标签结构，正确截断HTML内容
+        # YCY：使用truncatechars_html保留HTML标签结构，正确截断HTML内容
         html_content = truncatechars_html(html_content, summary_length)
     
-    # 然后应用插件过滤器，传递完整的上下文
+    # YCY：然后应用插件过滤器，传递完整的上下文
     from djangoblog.plugin_manage import hooks
     from djangoblog.plugin_manage.hook_constants import ARTICLE_CONTENT_HOOK_NAME
     
-    # 获取request对象
+    # YCY：获取request对象
     request = context.get('request')
     
-    # 应用所有文章内容相关的插件
-    # 注意：摘要模式下某些插件（如版权声明）可能不适用
+    # YCY：应用所有文章内容相关的插件
+    # YCY：注意：摘要模式下某些插件（如版权声明）可能不适用
     optimized_html = hooks.apply_filters(
         ARTICLE_CONTENT_HOOK_NAME,
         html_content,
         article=article,
         request=request,
         context=context,
-        is_summary=is_summary  # 传递摘要标志，插件可以据此调整行为
+        is_summary=is_summary  # YCY：传递摘要标志，插件可以据此调整行为
     )
 
-    # 如果有搜索查询，应用高亮
+    # YCY：如果有搜索查询，应用高亮
     query = context.get('query')
     if query and is_summary:
         optimized_html = highlight_content(optimized_html, query)
@@ -136,7 +137,7 @@ def get_markdown_toc(content):
 
 @register.simple_tag
 def current_nav_item(request):
-    """Determine the active navigation item based on the current URL path."""
+    """YCY：Determine the active navigation item based on the current URL path."""
     path = request.path
     if path == '/' or path.startswith('/page/'):
         return 'index'
@@ -160,7 +161,7 @@ def comment_markdown(content):
 
 @register.filter(is_safe=True)
 def to_json(value):
-    """
+    """YCY：
     将 Python 对象转换为 JSON 字符串，用于模板中传递给 JavaScript
     使用 ensure_ascii=False 以支持 emoji 等 unicode 字符
     """
@@ -172,7 +173,7 @@ def to_json(value):
 
 @register.filter
 def get_reactions_for_user(comment, user):
-    """
+    """YCY：
     获取评论的 reactions 数据（过滤器方式）
     用法: {{ comment|get_reactions_for_user:user }}
     """
@@ -188,7 +189,7 @@ def get_reactions_for_user(comment, user):
 @register.filter(is_safe=True)
 @stringfilter
 def truncatechars_content(content):
-    """
+    """YCY：
     获得文章内容的摘要
     :param content:
     :return:
@@ -209,7 +210,7 @@ def truncate(content):
 
 @register.inclusion_tag('blog/tags/breadcrumb.html')
 def load_breadcrumb(article):
-    """
+    """YCY：
     获得文章面包屑
     :param article:
     :return:
@@ -230,7 +231,7 @@ def load_breadcrumb(article):
 
 @register.inclusion_tag('blog/tags/article_tag_list.html')
 def load_articletags(article):
-    """
+    """YCY：
     文章标签
     :param article:
     :return:
@@ -250,7 +251,7 @@ def load_articletags(article):
 
 @register.inclusion_tag('blog/tags/sidebar.html')
 def load_sidebar(user, linktype):
-    """
+    """YCY：
     加载侧边栏
     :return:
     """
@@ -263,7 +264,7 @@ def load_sidebar(user, linktype):
         from djangoblog.utils import get_blog_setting
         blogsetting = get_blog_setting()
 
-        # 优化：添加select_related/prefetch_related减少查询
+        # YCY：优化：添加select_related/prefetch_related减少查询
         recent_articles = Article.objects.filter(
             status='p'
         ).select_related('author', 'category')[:blogsetting.sidebar_article_count]
@@ -289,7 +290,7 @@ def load_sidebar(user, linktype):
         commment_list = Comment.objects.filter(
             is_enable=True
         ).select_related('author').order_by('-id')[:blogsetting.sidebar_comment_count]
-        # 标签云 — 按文章数排序，取 top 20，size = (count/avg)*5+10
+        # YCY：标签云 — 按文章数排序，取 top 20，size = (count/avg)*5+10
         increment = 5
         tags = Tag.objects.all()
         sidebar_tags = None
@@ -325,7 +326,7 @@ def load_sidebar(user, linktype):
 
 @register.inclusion_tag('blog/tags/article_meta_info.html')
 def load_article_metas(article, user):
-    """
+    """YCY：
     获得文章meta信息
     :param article:
     :return:
@@ -338,10 +339,11 @@ def load_article_metas(article, user):
 
 @register.inclusion_tag('blog/tags/article_pagination.html')
 def load_pagination_info(page_obj, page_type, tag_name):
+    """YCY：计算分页窗口，生成省略号式页码列表。"""
     previous_url = ''
     next_url = ''
 
-    # Pre-resolve slug for tag/category to avoid repeated DB queries
+    # YCY：Pre-resolve slug for tag/category to avoid repeated DB queries
     _slug = None
     if page_type == '分类标签归档':
         _slug = get_object_or_404(Tag, name=tag_name).slug
@@ -349,7 +351,7 @@ def load_pagination_info(page_obj, page_type, tag_name):
         _slug = get_object_or_404(Category, name=tag_name).slug
 
     def _build_url(page_number):
-        """Build URL for a given page number based on page_type."""
+        """YCY：Build URL for a given page number based on page_type."""
         if page_type == '':
             return reverse('blog:index_page', kwargs={'page': page_number})
         elif page_type == '分类标签归档':
@@ -368,14 +370,14 @@ def load_pagination_info(page_obj, page_type, tag_name):
     if page_obj.has_previous():
         previous_url = _build_url(page_obj.previous_page_number())
 
-    # Build page range with URLs for numbered pagination
+    # YCY：Build page range with URLs for numbered pagination
     current_page = page_obj.number
     total_pages = page_obj.paginator.num_pages
     page_range = []
 
     if total_pages > 1:
-        # Show at most 5 page numbers centered around current page
-        # with ellipsis indicators
+        # YCY：Show at most 5 page numbers centered around current page
+        # YCY：with ellipsis indicators
         if total_pages <= 7:
             nums = range(1, total_pages + 1)
         else:
@@ -408,7 +410,7 @@ def load_pagination_info(page_obj, page_type, tag_name):
 
 @register.inclusion_tag('blog/tags/article_info.html')
 def load_article_detail(article, isindex, user, query=None):
-    """
+    """YCY：
     加载文章详情
     :param article:
     :param isindex:是否列表页，若是列表页只显示摘要
@@ -422,14 +424,14 @@ def load_article_detail(article, isindex, user, query=None):
         'article': article,
         'isindex': isindex,
         'user': user,
-        'query': query,  # 传递查询词
+        'query': query,  # YCY：传递查询词
         'open_site_comment': blogsetting.open_site_comment,
     }
 
 
 @register.inclusion_tag('blog/tags/article_info_highlight.html')
 def load_article_detail_with_highlight(article, highlighted, isindex, user):
-    """
+    """YCY：
     加载文章详情（带搜索高亮）
     :param article: 文章对象
     :param highlighted: 高亮数据字典 {'title': [...], 'body': [...]}
@@ -451,7 +453,7 @@ def load_article_detail_with_highlight(article, highlighted, isindex, user):
 
 @register.filter
 def highlight_search_term(text, query):
-    """
+    """YCY：
     在文本中高亮搜索关键词
     :param text: 原始文本
     :param query: 搜索查询词
@@ -461,13 +463,13 @@ def highlight_search_term(text, query):
         return text
 
     import re
-    # 分词处理（支持空格分隔的多个词）
+    # YCY：分词处理（支持空格分隔的多个词）
     terms = query.split()
 
     for term in terms:
-        if len(term) < 2:  # 忽略单字符
+        if len(term) < 2:  # YCY：忽略单字符
             continue
-        # 使用正则替换，不区分大小写，但保留原文本的大小写
+        # YCY：使用正则替换，不区分大小写，但保留原文本的大小写
         pattern = re.compile(r'(' + re.escape(term) + r')', re.IGNORECASE)
         text = pattern.sub(r'<mark>\1</mark>', text)
 
@@ -476,7 +478,7 @@ def highlight_search_term(text, query):
 
 @register.filter
 def highlight_content(html_content, query):
-    """
+    """YCY：
     对HTML内容提取纯文本并进行搜索高亮
     会去除HTML标签，只保留文本内容，并高亮搜索关键词
     跳过代码块中的内容
@@ -490,71 +492,71 @@ def highlight_content(html_content, query):
     from bs4 import BeautifulSoup
     import re
 
-    # 使用BeautifulSoup解析HTML
+    # YCY：使用BeautifulSoup解析HTML
     soup = BeautifulSoup(html_content, 'html.parser')
 
-    # 移除代码块、脚本等标签（不要它们的内容）
+    # YCY：移除代码块、脚本等标签（不要它们的内容）
     for tag in soup.find_all(['code', 'pre', 'script', 'style']):
         tag.decompose()
 
-    # 提取纯文本
+    # YCY：提取纯文本
     text = soup.get_text(separator=' ', strip=True)
 
-    # 分词处理（支持空格分隔的多个词）
+    # YCY：分词处理（支持空格分隔的多个词）
     terms = [term for term in query.split() if len(term) >= 2]
 
     if not terms:
         return text
 
-    # 对纯文本进行高亮
+    # YCY：对纯文本进行高亮
     for term in terms:
-        # 使用正则替换，不区分大小写
+        # YCY：使用正则替换，不区分大小写
         pattern = re.compile(r'(' + re.escape(term) + r')', re.IGNORECASE)
         text = pattern.sub(r'<mark>\1</mark>', text)
 
     return mark_safe(text)
 
 
-# 返回用户头像URL
-# 模板使用方法:  {{ email|gravatar_url:150 }}
+# YCY：返回用户头像URL
+# YCY：模板使用方法:  {{ email|gravatar_url:150 }}
 @register.filter
 def gravatar_url(email, size=40):
-    """获得用户头像 - 优先使用OAuth头像，否则使用默认头像"""
+    """YCY：获得用户头像 - 优先使用OAuth头像，否则使用默认头像"""
     cachekey = 'avatar/' + email
     url = cache.get(cachekey)
     if url:
         return url
     
-    # 检查OAuth用户是否有自定义头像
+    # YCY：检查OAuth用户是否有自定义头像
     usermodels = OAuthUser.objects.filter(email=email)
     if usermodels:
-        # 过滤出有头像的用户
+        # YCY：过滤出有头像的用户
         users_with_picture = list(filter(lambda x: x.picture is not None, usermodels))
         if users_with_picture:
-            # 获取默认头像路径用于比较
+            # YCY：获取默认头像路径用于比较
             default_avatar_path = static('blog/img/avatar.png')
             
-            # 优先选择非默认头像的用户，否则选择第一个
+            # YCY：优先选择非默认头像的用户，否则选择第一个
             non_default_users = [u for u in users_with_picture if u.picture != default_avatar_path and not u.picture.endswith('/avatar.png')]
             selected_user = non_default_users[0] if non_default_users else users_with_picture[0]
             
             url = selected_user.picture
-            cache.set(cachekey, url, 60 * 60 * 24)  # 缓存24小时
+            cache.set(cachekey, url, 60 * 60 * 24)  # YCY：缓存24小时
             
             avatar_type = 'non-default' if non_default_users else 'default'
             logger.info('Using {} OAuth avatar for {} from {}'.format(avatar_type, email, selected_user.type))
             return url
     
-    # 使用默认头像
+    # YCY：使用默认头像
     url = static('blog/img/avatar.png')
-    cache.set(cachekey, url, 60 * 60 * 24)  # 缓存24小时
+    cache.set(cachekey, url, 60 * 60 * 24)  # YCY：缓存24小时
     logger.info('Using default avatar for {}'.format(email))
     return url
 
 
 @register.filter
 def gravatar(email, size=40):
-    """获得用户头像HTML标签"""
+    """YCY：获得用户头像HTML标签"""
     url = gravatar_url(email, size)
     return mark_safe(
         '<img src="%s" height="%d" width="%d" class="avatar" alt="用户头像">' %
@@ -563,7 +565,7 @@ def gravatar(email, size=40):
 
 @register.simple_tag
 def query(qs, **kwargs):
-    """ template tag which allows queryset filtering. Usage:
+    """YCY： template tag which allows queryset filtering. Usage:
           {% query books author=author as mybooks %}
           {% for book in mybooks %}
             ...
@@ -574,15 +576,15 @@ def query(qs, **kwargs):
 
 @register.filter
 def addstr(arg1, arg2):
-    """concatenate arg1 & arg2"""
+    """YCY：concatenate arg1 & arg2"""
     return str(arg1) + str(arg2)
 
 
-# === 插件系统模板标签 ===
+# YCY：=== 插件系统模板标签 ===
 
 @register.simple_tag(takes_context=True)
 def render_plugin_widgets(context, position, **kwargs):
-    """
+    """YCY：
     渲染指定位置的所有插件组件
     
     Args:
@@ -609,17 +611,17 @@ def render_plugin_widgets(context, position, **kwargs):
         except Exception as e:
             logger.error(f"Error rendering widget from plugin {plugin.PLUGIN_NAME}: {e}")
     
-    # 按优先级排序（数字越小优先级越高）
+    # YCY：按优先级排序（数字越小优先级越高）
     widgets.sort(key=lambda x: x['priority'])
     
-    # 合并HTML内容
+    # YCY：合并HTML内容
     html_parts = [widget['html'] for widget in widgets]
     return mark_safe(''.join(html_parts))
 
 
 @register.simple_tag(takes_context=True)
 def plugin_critical_head_resources(context):
-    """
+    """YCY：
     渲染所有插件的关键head资源（阻塞式加载）
 
     用于防闪烁脚本等必须在页面渲染前执行的关键代码。
@@ -643,14 +645,14 @@ def plugin_critical_head_resources(context):
 
 @register.simple_tag(takes_context=True)
 def plugin_head_resources(context):
-    """渲染所有插件的head资源（仅自定义HTML，CSS已集成到压缩系统）"""
+    """YCY：渲染所有插件的head资源（仅自定义HTML，CSS已集成到压缩系统）"""
     from djangoblog.plugin_manage.loader import get_loaded_plugins
 
     resources = []
 
     for plugin in get_loaded_plugins():
         try:
-            # 只处理自定义head HTML（CSS文件已通过压缩系统处理）
+            # YCY：只处理自定义head HTML（CSS文件已通过压缩系统处理）
             head_html = plugin.get_head_html(context)
             if head_html:
                 resources.append(head_html)
@@ -663,14 +665,14 @@ def plugin_head_resources(context):
 
 @register.simple_tag(takes_context=True)
 def plugin_body_resources(context):
-    """渲染所有插件的body资源（仅自定义HTML，JS已集成到压缩系统）"""
+    """YCY：渲染所有插件的body资源（仅自定义HTML，JS已集成到压缩系统）"""
     from djangoblog.plugin_manage.loader import get_loaded_plugins
     
     resources = []
     
     for plugin in get_loaded_plugins():
         try:
-            # 只处理自定义body HTML（JS文件已通过压缩系统处理）
+            # YCY：只处理自定义body HTML（JS文件已通过压缩系统处理）
             body_html = plugin.get_body_html(context)
             if body_html:
                 resources.append(body_html)
@@ -683,7 +685,7 @@ def plugin_body_resources(context):
 
 @register.inclusion_tag('plugins/css_includes.html')
 def plugin_compressed_css():
-    """插件CSS压缩包含模板"""
+    """YCY：插件CSS压缩包含模板"""
     from djangoblog.plugin_manage.loader import get_loaded_plugins
     
     css_files = []
@@ -697,7 +699,7 @@ def plugin_compressed_css():
 
 @register.inclusion_tag('plugins/js_includes.html')
 def plugin_compressed_js():
-    """插件JS压缩包含模板"""
+    """YCY：插件JS压缩包含模板"""
     from djangoblog.plugin_manage.loader import get_loaded_plugins
     
     js_files = []
@@ -713,7 +715,7 @@ def plugin_compressed_js():
 
 @register.simple_tag(takes_context=True)
 def plugin_widget(context, plugin_name, widget_type='default', **kwargs):
-    """
+    """YCY：
     渲染指定插件的组件
     
     使用方式：

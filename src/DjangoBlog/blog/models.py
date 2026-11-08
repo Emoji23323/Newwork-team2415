@@ -1,3 +1,4 @@
+"""YCY：定义文章、分类、标签、友情链接、侧栏与站点配置模型，并集中实现排序、缓存与单例校验。"""
 import logging
 import re
 from abc import abstractmethod
@@ -27,11 +28,14 @@ class LinkShowType(models.TextChoices):
 
 
 class BaseModel(models.Model):
+    """YCY：内容实体抽象基类，统一自增主键、创建时间和修改时间。"""
     id = models.AutoField(primary_key=True)
     creation_time = models.DateTimeField(_('creation time'), default=now)
     last_modify_time = models.DateTimeField(_('modify time'), default=now)
 
     def save(self, *args, **kwargs):
+        # YCY：仅浏览量更新时绕过完整 save，减少信号与缓存开销。
+        """YCY：保存时自动生成 slug；仅更新浏览量时走轻量分支。"""
         is_update_views = isinstance(
             self,
             Article) and 'update_fields' in kwargs and kwargs['update_fields'] == ['views']
@@ -60,7 +64,7 @@ class BaseModel(models.Model):
 
 
 class Article(BaseModel):
-    """文章"""
+    """YCY：文章"""
     STATUS_CHOICES = (
         ('d', _('Draft')),
         ('p', _('Published')),
@@ -118,13 +122,13 @@ class Article(BaseModel):
         verbose_name_plural = verbose_name
         get_latest_by = 'id'
         indexes = [
-            # 优化列表查询：type + status + pub_time组合索引
+            # YCY：优化列表查询：type + status + pub_time组合索引
             models.Index(fields=['type', 'status', '-pub_time'], name='idx_type_status_pub'),
-            # 优化热门文章查询：status + views组合索引
+            # YCY：优化热门文章查询：status + views组合索引
             models.Index(fields=['status', '-views'], name='idx_status_views'),
-            # 优化作者文章查询：author + status + type组合索引
+            # YCY：优化作者文章查询：author + status + type组合索引
             models.Index(fields=['author', 'status', 'type'], name='idx_author_status_type'),
-            # 优化分类查询：category + status组合索引
+            # YCY：优化分类查询：category + status组合索引
             models.Index(fields=['category', 'status'], name='idx_category_status'),
         ]
 
@@ -151,6 +155,8 @@ class Article(BaseModel):
         self.save(update_fields=['views'])
 
     def comment_list(self):
+        # YCY：评论列表按文章 ID 缓存，降低详情页重复查询。
+        """YCY：按文章读取已审核评论并按 ID 倒序缓存。"""
         cache_key = CacheKey.ARTICLE_COMMENTS.format(article_id=self.id)
         value = cache.get(cache_key)
         if value:
@@ -168,17 +174,17 @@ class Article(BaseModel):
 
     @cache_decorator(expiration=CacheTimeout.HOUR_10)
     def next_article(self):
-        # 下一篇
+        # YCY：下一篇
         return Article.objects.filter(
             id__gt=self.id, status='p').order_by('id').first()
 
     @cache_decorator(expiration=CacheTimeout.HOUR_10)
     def prev_article(self):
-        # 前一篇
+        # YCY：前一篇
         return Article.objects.filter(id__lt=self.id, status='p').first()
 
     def get_first_image_url(self):
-        """
+        """YCY：
         Get the first image url from article.body.
         :return:
         """
@@ -189,7 +195,7 @@ class Article(BaseModel):
 
 
 class Category(BaseModel):
-    """文章分类"""
+    """YCY：文章分类"""
     name = models.CharField(_('category name'), max_length=30, unique=True)
     parent_category = models.ForeignKey(
         'self',
@@ -215,7 +221,7 @@ class Category(BaseModel):
 
     @cache_decorator(CacheTimeout.HOUR_10)
     def get_category_tree(self):
-        """
+        """YCY：
         递归获得分类目录的父级
         :return:
         """
@@ -231,7 +237,7 @@ class Category(BaseModel):
 
     @cache_decorator(CacheTimeout.HOUR_10)
     def get_sub_categorys(self):
-        """
+        """YCY：
         获得当前分类目录所有子集
         :return:
         """
@@ -252,7 +258,7 @@ class Category(BaseModel):
 
 
 class Tag(BaseModel):
-    """文章标签"""
+    """YCY：文章标签"""
     name = models.CharField(_('tag name'), max_length=30, unique=True)
     slug = models.SlugField(default='no-slug', max_length=60, blank=True)
 
@@ -273,7 +279,7 @@ class Tag(BaseModel):
 
 
 class Links(models.Model):
-    """友情链接"""
+    """YCY：友情链接"""
 
     name = models.CharField(_('link name'), max_length=30, unique=True)
     link = models.URLField(_('link'))
@@ -298,7 +304,7 @@ class Links(models.Model):
 
 
 class SideBar(models.Model):
-    """侧边栏,可以展示一些html内容"""
+    """YCY：侧边栏,可以展示一些html内容"""
     name = models.CharField(_('title'), max_length=100)
     content = models.TextField(_('content'))
     sequence = models.IntegerField(_('order'), unique=True)
@@ -316,7 +322,7 @@ class SideBar(models.Model):
 
 
 class BlogSettings(models.Model):
-    """blog的配置"""
+    """YCY：blog的配置"""
 
     COLOR_SCHEMES = (
         ('purple', _('紫色主题 - Purple Dream')),
@@ -396,10 +402,13 @@ class BlogSettings(models.Model):
         return self.site_name
 
     def clean(self):
+        # YCY：应用层单例约束；数据库层没有对应唯一索引。
+        """YCY：在应用层保证站点配置只能存在一条记录。"""
         if BlogSettings.objects.exclude(id=self.id).count():
             raise ValidationError(_('There can only be one configuration'))
 
     def save(self, *args, **kwargs):
+        """YCY：保存配置后清空缓存，避免旧配置继续被读取。"""
         super().save(*args, **kwargs)
         from djangoblog.utils import cache
         cache.clear()

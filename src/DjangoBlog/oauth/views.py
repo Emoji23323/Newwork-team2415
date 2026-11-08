@@ -1,5 +1,6 @@
+"""PHJ：实现 OAuth 授权入口、回调、邮箱补全与绑定结果页。"""
 import logging
-# Create your views here.
+# PHJ：Create your views here.
 from urllib.parse import urlparse
 
 from django.conf import settings
@@ -28,12 +29,14 @@ logger = logging.getLogger(__name__)
 
 
 def get_redirecturl(request):
+    """PHJ：校验 next_url，仅允许本站或相对地址。"""
     nexturl = request.GET.get('next_url', None)
     if not nexturl or nexturl == '/login/' or nexturl == '/login':
         return '/'
 
-    # Only allow relative URLs or URLs pointing to the current host
+    # PHJ：Only allow relative URLs or URLs pointing to the current host
     site_domain = get_current_site().domain
+    # PHJ：只允许跳转到本站或相对地址，防止开放重定向。
     if url_has_allowed_host_and_scheme(
         url=nexturl,
         allowed_hosts={site_domain},
@@ -46,6 +49,7 @@ def get_redirecturl(request):
 
 
 def oauthlogin(request):
+    """PHJ：按平台类型生成授权地址并跳转。"""
     type = request.GET.get('type', None)
     if not type:
         return HttpResponseRedirect('/')
@@ -58,12 +62,14 @@ def oauthlogin(request):
 
 
 def authorize(request):
+    """PHJ：处理授权回调：换令牌、解析用户、绑定或创建本站账号并登录。"""
     type = request.GET.get('type', None)
     if not type:
         return HttpResponseRedirect('/')
     manager = get_manager_by_type(type)
     if not manager:
         return HttpResponseRedirect('/')
+    # PHJ：回调阶段用授权码换令牌；当前未校验 state 参数。
     code = request.GET.get('code', None)
     try:
         rsp = manager.get_access_token_by_code(code)
@@ -88,7 +94,8 @@ def authorize(request):
             user = temp
         except ObjectDoesNotExist:
             pass
-        # facebook的token过长
+        # PHJ：facebook的token过长
+        # PHJ：Facebook 令牌过长，截断为空以适配字段长度。
         if type == 'facebook':
             user.token = ''
         if user.email:
@@ -117,15 +124,15 @@ def authorize(request):
                 oauth_user_login_signal.send(
                     sender=authorize.__class__, id=user.id)
                 login(request, author)
-                # 设置session过期时间为2周（默认）
+                # PHJ：设置session过期时间为2周（默认）
                 request.session.set_expiry(settings.SESSION_COOKIE_AGE)
-                # 设置登录标记 cookie
+                # PHJ：设置登录标记 cookie
                 response = HttpResponseRedirect(nexturl)
                 response.set_cookie(
                     'logged_user',
                     'true',
                     max_age=settings.SESSION_COOKIE_AGE,
-                    httponly=False,  # 允许 JavaScript 访问
+                    httponly=False,  # PHJ：允许 JavaScript 访问
                     samesite='Lax'
                 )
                 return response
@@ -141,8 +148,10 @@ def authorize(request):
 
 
 def emailconfirm(request, id, sign):
+    """PHJ：校验邮箱确认签名，完成第三方账号与本站用户的绑定。"""
     if not sign:
         return HttpResponseForbidden()
+    # PHJ：邮箱确认链接用 SECRET_KEY 与 id 拼签名，防止篡改。
     if not get_sha256(settings.SECRET_KEY +
                       str(id) +
                       settings.SECRET_KEY).upper() == sign.upper():
@@ -165,7 +174,7 @@ def emailconfirm(request, id, sign):
         sender=emailconfirm.__class__,
         id=oauthuser.id)
     login(request, author)
-    # 设置session过期时间为2周（默认）
+    # PHJ：设置session过期时间为2周（默认）
     request.session.set_expiry(settings.SESSION_COOKIE_AGE)
 
     site = 'http://' + get_current_site().domain
@@ -185,19 +194,20 @@ def emailconfirm(request, id, sign):
         'oauthid': id
     })
     url = url + '?type=success'
-    # 设置登录标记 cookie
+    # PHJ：设置登录标记 cookie
     response = HttpResponseRedirect(url)
     response.set_cookie(
         'logged_user',
         'true',
         max_age=settings.SESSION_COOKIE_AGE,
-        httponly=False,  # 允许 JavaScript 访问
+        httponly=False,  # PHJ：允许 JavaScript 访问
         samesite='Lax'
     )
     return response
 
 
 class RequireEmailView(FormView):
+    """PHJ：第三方资料缺少邮箱时，要求用户补充并发送确认邮件。"""
     form_class = RequireEmailForm
     template_name = 'oauth/require_email.html'
 
@@ -206,7 +216,7 @@ class RequireEmailView(FormView):
         oauthuser = get_object_or_404(OAuthUser, pk=oauthid)
         if oauthuser.email:
             pass
-            # return HttpResponseRedirect('/')
+            # PHJ：return HttpResponseRedirect('/')
 
         return super(RequireEmailView, self).get(request, *args, **kwargs)
 
@@ -261,6 +271,7 @@ class RequireEmailView(FormView):
 
 
 def bindsuccess(request, oauthid):
+    """PHJ：展示绑定结果与后续提示。"""
     type = request.GET.get('type', None)
     oauthuser = get_object_or_404(OAuthUser, pk=oauthid)
     if type == 'email':

@@ -1,3 +1,4 @@
+"""PZQ：提供评论批量启用/禁用、关联跳转与反应记录展示。"""
 from django.contrib import admin
 from django.urls import reverse
 from django.utils.html import format_html
@@ -7,10 +8,12 @@ from .models import Comment, CommentReaction
 
 
 def disable_commentstatus(modeladmin, request, queryset):
+    """PZQ：批量把评论置为不可见。"""
     queryset.update(is_enable=False)
 
 
 def enable_commentstatus(modeladmin, request, queryset):
+    """PZQ：批量把评论置为可见。"""
     queryset.update(is_enable=True)
 
 
@@ -19,6 +22,7 @@ enable_commentstatus.short_description = _('Enable comments')
 
 
 class CommentAdmin(admin.ModelAdmin):
+    """PZQ：评论后台管理类，展示文章、作者与审核状态。"""
     list_per_page = 20
     list_display = (
         'id',
@@ -52,6 +56,7 @@ class CommentAdmin(admin.ModelAdmin):
 
 
 class CommentReactionAdmin(admin.ModelAdmin):
+    """PZQ：评论反应后台，支持按评论和用户追踪记录。"""
     list_display = ('id', 'reaction_type', 'link_to_comment', 'link_to_user', 'created_at')
     list_display_links = ('id', 'reaction_type')
     list_filter = ('reaction_type', 'created_at')
